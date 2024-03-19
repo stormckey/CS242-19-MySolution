@@ -8,24 +8,65 @@ exception Unimplemented
 module Type = struct
   open Ast.Type
 
-  let substitute_map (rename : t String.Map.t) (tau : t) : t =
+  let rec substitute_map (rename : t String.Map.t) (tau : t) : t =
+    let sub1 = substitute_map rename in
+    let refresh rename x  = String.Map.change rename x ~f:(function | Some _ | None -> Some( Var (fresh x))) in
     match tau with
-    | Num -> Num
-    (* Add more cases here! *)
+    | Num | Bool | Unit -> tau
+    | Var x -> 
+      ( match String.Map.find rename x with
+        | Some x' -> x'
+        | None -> Var x)
+    | Fn {arg; ret} -> Fn {
+      arg = sub1 arg;
+      ret = sub1 ret;}
+    | Product {left; right} -> Product {
+      left = sub1 left;
+      right = sub1 right;}
+    | Sum {left; right} -> Sum {
+      left = sub1 left;
+      right = sub1 right;}
+    | Rec {a; tau} -> 
+      let rename' = refresh rename a in
+      Rec {a = fresh a; tau = substitute_map rename' tau}
+    | Forall {a; tau} -> 
+      let rename' = refresh rename a in 
+      Forall {a = fresh a; tau = substitute_map rename' tau}
     | _ -> raise Unimplemented
 
   let substitute (x : string) (tau' : t) (tau : t) : t =
     substitute_map (String.Map.singleton x tau') tau
 
-  let to_debruijn (tau : t) : t =
-    let aux (index : int String.Map.t) (tau : t) : t =
+  let rec to_debruijn (tau : t) : t =
+    let rec aux (index : int String.Map.t) (tau : t) : t =
+      let aux1 = aux index in
       match tau with
-      | Num | Bool | Unit | Fn _ -> tau
+      | Num | Bool | Unit -> tau
       | Var x ->
         (match String.Map.find index x with 
           | Some depth -> Var (Int.to_string depth)
           | None -> tau)
+      | Fn {arg; ret} -> Fn {
+        arg = aux1 arg;
+        ret = aux1 ret;}
+      | Product {left; right} -> Product {
+        left = aux1 left;
+        right = aux1 right}
+      | Sum {left; right} -> Sum {
+        left = aux1 left;
+        right = aux1 right;}
+      | Rec {a; tau} ->
+        let new_tau = new_tau_after_increased_depth index a tau in
+        Rec {a = "_"; tau = new_tau}
+      | Forall {a; tau} -> 
+        let new_tau = new_tau_after_increased_depth index a tau in
+        Forall {a = "_"; tau = new_tau}
       | _ -> raise Unimplemented
+    and new_tau_after_increased_depth index a tau = 
+      let increased_index = String.Map.map index ~f:(fun i -> i + 1) in
+      let new_index = String.Map.add_exn increased_index ~key:a ~data:0 in
+      aux new_index tau
+
     in
     aux String.Map.empty tau
 
@@ -138,6 +179,14 @@ module Expr = struct
         x = fresh x;
         tau;
         e = substitute_map rename' e;}
+    | TyLam {a; e} ->
+      let rename' = refresh rename a in
+      TyLam {
+        a = fresh a;
+        e = substitute_map rename' e;}
+    | TyApp {e; tau} -> TyApp {
+      e = sub1 e;
+      tau;}
     | _ -> raise Unimplemented
 
   let substitute (x : string) (e' : t) (e : t) : t =

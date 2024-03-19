@@ -81,6 +81,13 @@ let rec trystep (e : Expr.t) : outcome =
 
 	| Expr.Fix {x; e; _}  as fix -> 
 		Step (Ast_util.Expr.substitute x fix e)
+	
+	| Expr.TyApp {e; tau} ->
+			(e, fun e' -> Expr.TyApp {e = e'; tau}) |-> fun () ->
+				(match e with
+					| Expr.TyLam {a; e} ->
+						Step (e)
+					| _ -> failwith "the left of a type application is not a polymorphic function")
 
   | _ -> raise (RuntimeError (
     Printf.sprintf "Reached a stuck state at expression: %s" (Expr.to_string e)))

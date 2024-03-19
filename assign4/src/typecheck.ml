@@ -153,6 +153,20 @@ let rec typecheck_expr (ctx : Type.t String.Map.t) (e : Expr.t)
         Error (
           "The type of the body in fixpoint is " ^ (Type.to_string tau_fix) ^ " while it's declared as " ^ (Type.to_string tau) ^ "\n"
         )
+        
+  | Expr.TyLam {a; e;} ->
+      typecheck_expr ctx e >>= fun tau ->
+        Ok ( Type.Forall {a; tau})
+        
+  | Expr.TyApp {e; tau} ->
+    typecheck_expr ctx e >>= fun tau_forall ->
+      ( match tau_forall with
+        | Type.Forall {a; tau = tau_origin} -> 
+          Ok (Ast_util.Type.substitute a tau tau_origin)
+        | _ -> Error (
+          "Try to aplly to type with a non-polymorphic function:\n"
+          ^ (expr_type_list_to_string [(e, tau_forall)]) ^ "\n"
+        )) 
 
   | _ -> raise Unimplemented
 
