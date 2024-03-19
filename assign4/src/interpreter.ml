@@ -53,7 +53,6 @@ let rec trystep (e : Expr.t) : outcome =
 				| Expr.False -> Step(else_)
 				| _ -> failwith "If condition not boolean in eval")
 		
-	| Expr.Lam _ -> Val
 
 	| Expr.App {lam; arg} -> 
 		(lam, fun lam' -> Expr.App {lam = lam'; arg}) |-> fun () ->
@@ -61,7 +60,14 @@ let rec trystep (e : Expr.t) : outcome =
 			| Lam {x; tau = _; e} -> 
 				Step (Ast_util.Expr.substitute x arg e)
 			| _ -> failwith "try to call to a non-function")
-  (* Add more cases here! *)
+
+  | Expr.Project {e; d} -> 
+      ( match e with 
+        | Expr.Pair {left; right} -> 
+          (match d with 
+            | Left -> Step left
+            | Right -> Step right)
+        | _ -> failwith "the left part of a projection is not a pair")
 
   | _ -> raise (RuntimeError (
     Printf.sprintf "Reached a stuck state at expression: %s" (Expr.to_string e)))

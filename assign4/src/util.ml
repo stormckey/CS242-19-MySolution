@@ -25,4 +25,4 @@ let expr_expr_to_num_num left right =
     | _, _ -> failwith ("Not both sides are nums" ^ (Expr.to_string left) ^ (Expr.to_string right)))
 
 let pe s = print_endline (Expr.to_string s)
-let pt s = print_endline (Type.to_string_sexp s)
+let pt s = print_endline (Type.to_string s)

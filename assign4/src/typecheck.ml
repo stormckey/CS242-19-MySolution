@@ -88,6 +88,25 @@ let rec typecheck_expr (ctx : Type.t String.Map.t) (e : Expr.t)
           "Try to apply to non-function"
           ^ (expr_type_list_to_string [(lam, tau_lam); (arg, tau_arg)]) ^ "\n"
         ))
+  
+  | Expr.Unit -> Ok Type.Unit
+
+  | Expr.Pair {left; right} -> 
+    typecheck_expr ctx left >>= fun tau_left ->
+    typecheck_expr ctx right >>= fun tau_right ->
+      Ok (Type.Product {left= tau_left; right = tau_right})
+
+  | Expr.Project {e; d} -> 
+    typecheck_expr ctx e >>= fun tau_pair ->
+      ( match tau_pair with 
+        | Type.Product {left; right} ->
+            ( match d with 
+              | Left -> Ok left
+              | Right -> Ok right)
+        | _ -> Error (
+          "The left part of the project is not a pair:"
+          ^ (expr_type_list_to_string [(e, tau_pair)]) ^ "\n"
+        ))
 
   | _ -> raise Unimplemented
 

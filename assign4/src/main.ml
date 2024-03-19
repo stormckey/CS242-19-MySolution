@@ -5,7 +5,7 @@ open Ast
 
 let interpret (expr : Expr.t) =
   (if verbose () then Printf.printf "Expr: %s\n\n" (
-     Expr.to_string (if testing () then Ast_util.Expr.to_debruijn expr else expr)));
+     Expr.to_string_sexp (if testing () then Ast_util.Expr.to_debruijn expr else expr)));
   Typecheck.typecheck expr >>= fun ty ->
   (if verbose () then Printf.printf "Type: %s\n\n" (
      Type.to_string (if testing () then Ast_util.Type.to_debruijn ty else ty)));
