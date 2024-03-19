@@ -3,6 +3,7 @@ open Core
 open Util
 open Result.Monad_infix
 open Ast
+open Printf
 
 exception Unimplemented
 
@@ -167,6 +168,46 @@ let rec typecheck_expr (ctx : Type.t String.Map.t) (e : Expr.t)
           "Try to aplly to type with a non-polymorphic function:\n"
           ^ (expr_type_list_to_string [(e, tau_forall)]) ^ "\n"
         )) 
+      
+  | Expr.Fold_ {e; tau} ->
+    typecheck_expr ctx e >>= fun tau_e ->
+      (match tau with
+        | Rec {a; tau = tau'} -> 
+            let new_tau = Ast_util.Type.substitute a tau tau' in
+            if (Ast_util.Type.aequiv new_tau tau_e) then
+              Ok tau
+            else 
+              Error ( sprintf "Type confliction in folding:\n%s %s\n" (Type.to_string new_tau) (Type.to_string tau_e) )
+        | _ -> Error ( sprintf "Tty to fold into a non-recursive type:\n%s\n" (Type.to_string tau) ))
+
+    | Expr.Unfold t ->
+      typecheck_expr ctx t >>= fun tau_t ->
+          ( match tau_t with 
+            | Type.Rec {a; tau} -> 
+              let new_tau = Ast_util.Type.substitute a tau_t tau in
+              Ok new_tau
+            | _ -> Error ( sprintf "Try to unfold a non-recursive type:\n%s\n" (Type.to_string tau_t) ))
+
+    | Expr.Export {e; tau_adt; tau_mod} ->
+      typecheck_expr ctx e >>= fun tau_e ->
+        (match tau_mod with
+          | Type.Exists {a; tau} ->
+            let tau_new = Ast_util.Type.substitute a tau_adt tau in
+            if (Ast_util.Type.aequiv tau_new tau_e) then 
+              Ok (Type.Exists {a; tau})
+            else
+              Error ( sprintf "Type confliction after exportin\n%s %s\n" (Type.to_string tau_e) (Type.to_string tau_new) )
+          | _ -> Error ( sprintf "Try to export as non-exist type\n%s\n" (Type.to_string tau_mod)))
+        
+    | Expr.Import {x; a; e_mod; e_body} ->
+      typecheck_expr ctx e_mod >>= fun tau_e_mod ->
+        ( match tau_e_mod with
+          | Type.Exists {a = a'; tau} ->
+              let tau_mod_new = Ast_util.Type.substitute a' (Type.Var a) tau in
+              let ctx' = update_ctx ctx x tau_mod_new in
+              typecheck_expr ctx' e_body >>= fun tau_e_body ->
+                Ok tau_e_body
+          | _ -> Error ( sprintf "e_mod is not of type exists in import\n%s\n" (Type.to_string tau_e_mod)))
 
   | _ -> raise Unimplemented
 

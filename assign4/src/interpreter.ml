@@ -62,6 +62,7 @@ let rec trystep (e : Expr.t) : outcome =
 			| _ -> failwith "try to call to a non-function")
 
   | Expr.Project {e; d} -> 
+		(e, fun e' -> Expr.Project {e = e'; d}) |-> fun () ->
       ( match e with 
         | Expr.Pair {left; right} -> 
           (match d with 
@@ -70,6 +71,7 @@ let rec trystep (e : Expr.t) : outcome =
         | _ -> failwith "the left part of a projection is not a pair")
 
   | Expr.Case {e; xleft; eleft; xright; eright} ->
+		(e, fun e' -> Expr.Case {e = e'; xleft; eleft; xright; eright}) |-> fun () ->
 		( match e with
 			| Expr.Inject {e; d; _} ->
 					let (x, e') = match d with
@@ -85,12 +87,27 @@ let rec trystep (e : Expr.t) : outcome =
 	| Expr.TyApp {e; tau} ->
 			(e, fun e' -> Expr.TyApp {e = e'; tau}) |-> fun () ->
 				(match e with
-					| Expr.TyLam {a; e} ->
+					| Expr.TyLam {e; _} ->
 						Step (e)
 					| _ -> failwith "the left of a type application is not a polymorphic function")
+	
+	| Expr.Unfold t ->
+			(t, fun t' -> Unfold t') |-> fun () ->
+				( match t with 
+					| Expr.Fold_ {e; _} ->
+							Step (e)
+					| _ -> failwith "Try to unfold a non-recursive type")
+				
+	| Expr.Import {x; a; e_mod; e_body} ->
+		(e_mod, fun e_mod' -> Expr.Import {x; a; e_mod = e_mod'; e_body}) |-> fun () ->
+			(match e_mod with
+				| Expr.Export {e; _} -> 
+					Step ( Ast_util.Expr.substitute x e e_body)
+				| _ -> failwith "Try to import a non-existential type")
+		
 
   | _ -> raise (RuntimeError (
-    Printf.sprintf "Reached a stuck state at expression: %s" (Expr.to_string e)))
+    sprintf "Reached a stuck state at expression: %s" (Expr.to_string e)))
 
 and (|->) ((e, hole) : Expr.t * (Expr.t -> Expr.t)) (next : unit -> outcome)
   : outcome =

@@ -61,6 +61,9 @@ module Type = struct
       | Forall {a; tau} -> 
         let new_tau = new_tau_after_increased_depth index a tau in
         Forall {a = "_"; tau = new_tau}
+      | Exists {a; tau} ->
+        let new_tau = new_tau_after_increased_depth index a tau in
+        Exists {a = "_"; tau = new_tau}
       | _ -> raise Unimplemented
     and new_tau_after_increased_depth index a tau = 
       let increased_index = String.Map.map index ~f:(fun i -> i + 1) in
@@ -187,6 +190,22 @@ module Expr = struct
     | TyApp {e; tau} -> TyApp {
       e = sub1 e;
       tau;}
+    | Fold_ {e; tau} -> Fold_ {
+      e = sub1 e;
+      tau}
+    | Unfold t -> Unfold (sub1 t)
+    | Export {e; tau_adt; tau_mod} -> Export {
+      e = sub1 e;
+      tau_adt;
+      tau_mod;}
+    | Import {x; a; e_mod; e_body} ->
+      let rename_x = refresh rename x in
+      let rename_xa = refresh rename_x a in
+      Import {
+        x = fresh x;
+        a = fresh a;
+        e_mod = sub1 e_mod;
+        e_body = substitute_map rename_xa e_body;}
     | _ -> raise Unimplemented
 
   let substitute (x : string) (e' : t) (e : t) : t =
