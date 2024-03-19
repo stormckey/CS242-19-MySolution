@@ -26,3 +26,5 @@ let expr_expr_to_num_num left right =
 
 let pe s = print_endline (Expr.to_string s)
 let pt s = print_endline (Type.to_string s)
+
+let update_ctx ctx x tau= String.Map.change ctx x ~f:(function | Some _ | None -> Some tau)

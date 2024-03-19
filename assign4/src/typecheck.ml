@@ -61,7 +61,7 @@ let rec typecheck_expr (ctx : Type.t String.Map.t) (e : Expr.t)
             ^ (expr_type_list_to_string [(cond,tau_cond)]) ^ "\n"
         ))
   | Expr.Lam {x; tau; e} -> 
-      let ctx' = String.Map.change ctx x ~f:(function | Some _ | None -> Some tau) in
+      let ctx' = update_ctx ctx x tau in
       typecheck_expr ctx' e >>= fun tau_ret ->
         Ok (Type.Fn {arg = tau; ret = tau_ret})
   
@@ -107,6 +107,44 @@ let rec typecheck_expr (ctx : Type.t String.Map.t) (e : Expr.t)
           "The left part of the project is not a pair:"
           ^ (expr_type_list_to_string [(e, tau_pair)]) ^ "\n"
         ))
+
+  | Expr.Inject {e; d; tau} ->
+    typecheck_expr ctx e >>= fun tau_e ->
+      ( match tau with
+        | Type.Sum {left; right} ->
+          ( let (tau_expect,dir) =  match d with 
+            | Left -> (left, "left ")
+            | Right -> (right, "right ") in
+            if ( Ast_util.Type.aequiv tau_expect tau_e) then 
+                        Ok tau 
+                      else Error(
+                        "A conflict in the sum type:\n"
+                        ^ (expr_type_list_to_string [(e, tau_e)]) ^ " in " ^ dir ^ (Type.to_string tau) ^ "\n"
+                      ))
+        | _ -> Error ("Try to inject into a non-sum-type:"
+                      ^ (Type.to_string tau) ^ "\n"
+                ))
+
+  | Expr.Case {e; xleft; eleft; xright; eright;} ->
+    typecheck_expr ctx e >>= fun tau_inj ->
+      ( match tau_inj with
+        | Type.Sum {left; right} -> 
+          let ctx_l = update_ctx ctx xleft left in
+          typecheck_expr ctx_l eleft >>= fun tau_left ->
+            let ctx_r = update_ctx ctx xright right in
+            typecheck_expr ctx_r eright >>= fun tau_right ->
+              if (Ast_util.Type.aequiv tau_left tau_right) then 
+                Ok tau_left
+              else
+                Error (
+                  "The branches have diifernet type:\n"
+                  ^ (expr_type_list_to_string [(eleft, tau_left); (eright, tau_right)])
+                )
+        | _ -> Error (
+          "try to case over a non-sum value:\n" ^ ( Expr.to_string e) ^ "\n"
+        ))
+        
+                              
 
   | _ -> raise Unimplemented
 

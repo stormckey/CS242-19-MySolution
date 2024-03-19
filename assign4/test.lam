@@ -1,1 +1,1 @@
-(1 + 1,true).L
+case (inj 5 + 3 = L as (num + bool)) {L(n) -> n + 1 | R(b) -> 1}

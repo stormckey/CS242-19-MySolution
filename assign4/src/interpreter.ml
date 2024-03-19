@@ -69,6 +69,16 @@ let rec trystep (e : Expr.t) : outcome =
             | Right -> Step right)
         | _ -> failwith "the left part of a projection is not a pair")
 
+  | Expr.Case {e; xleft; eleft; xright; eright} ->
+		( match e with
+			| Expr.Inject {e; d; _} ->
+					let (x, e') = match d with
+												| Left -> (xleft, eleft)
+												| Right -> (xright, eright) in
+					Step (Ast_util.Expr.substitute x e e')			
+
+			| _ -> failwith "try to case over a non-sum type") 
+
   | _ -> raise (RuntimeError (
     Printf.sprintf "Reached a stuck state at expression: %s" (Expr.to_string e)))
 

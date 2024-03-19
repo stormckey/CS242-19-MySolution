@@ -19,21 +19,13 @@ module Type = struct
     substitute_map (String.Map.singleton x tau') tau
 
   let to_debruijn (tau : t) : t =
-    let rec aux (index : int String.Map.t) (tau : t) : t =
+    let aux (index : int String.Map.t) (tau : t) : t =
       match tau with
       | Num | Bool | Unit | Fn _ -> tau
       | Var x ->
         (match String.Map.find index x with 
           | Some depth -> Var (Int.to_string depth)
           | None -> tau)
-      (* | Fn {arg; ret} -> 
-        (match arg with
-          | Var x-> 
-            let increased_index = String.Map.map index ~f:(fun i-> i+1) in
-            let new_index = String.Map.add_exn increased_index ~key:x ~data:0 in
-            let new_ret = aux new_index ret in
-            Fn {arg = Var "_"; ret = new_ret}
-          | _ -> failwith "The arg of the function is not a var") *)
       | _ -> raise Unimplemented
     in
     aux String.Map.empty tau
