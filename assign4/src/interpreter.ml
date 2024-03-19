@@ -79,6 +79,9 @@ let rec trystep (e : Expr.t) : outcome =
 
 			| _ -> failwith "try to case over a non-sum type") 
 
+	| Expr.Fix {x; e; _}  as fix -> 
+		Step (Ast_util.Expr.substitute x fix e)
+
   | _ -> raise (RuntimeError (
     Printf.sprintf "Reached a stuck state at expression: %s" (Expr.to_string e)))
 

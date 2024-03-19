@@ -144,7 +144,15 @@ let rec typecheck_expr (ctx : Type.t String.Map.t) (e : Expr.t)
           "try to case over a non-sum value:\n" ^ ( Expr.to_string e) ^ "\n"
         ))
         
-                              
+  | Expr.Fix {x; tau; e} ->
+    let ctx' = update_ctx ctx x tau in
+    typecheck_expr ctx' e >>= fun tau_fix ->         
+      if (Ast_util.Type.aequiv tau tau_fix) then
+        Ok tau
+      else
+        Error (
+          "The type of the body in fixpoint is " ^ (Type.to_string tau_fix) ^ " while it's declared as " ^ (Type.to_string tau) ^ "\n"
+        )
 
   | _ -> raise Unimplemented
 

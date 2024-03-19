@@ -4,7 +4,6 @@ open Util
 
 exception Unimplemented
 
-let fresh s = s ^ "'"
 
 module Type = struct
   open Ast.Type
@@ -106,7 +105,7 @@ module Expr = struct
       left = sub1 left;
       right = sub1 right}
     | Lam {x; tau; e} -> 
-      let rename' = String.Map.change rename x ~f:(function | Some _ | None -> Some( Var (fresh x))) in
+      let rename' = refresh rename x in
       Lam {x = fresh x; tau; e = substitute_map rename' e}
     | Var x -> (match String.Map.find rename x with 
                 | Some x' -> x'
@@ -114,6 +113,31 @@ module Expr = struct
     | App {lam; arg} -> App {
       lam = sub1 lam;
       arg = sub1 arg} 
+    | Pair {left; right} -> Pair {
+      left = sub1 left;
+      right = sub1 right;}
+    | Project {e; d} -> Project {
+      e = sub1 e;
+      d;}
+    | Inject {e; d; tau} -> Inject {
+      e = sub1 e;
+      d;
+      tau;}
+    | Case {e; xleft; eleft; xright; eright} ->
+        let rename_l = refresh rename xleft in
+        let rename_r = refresh rename xright in
+        Case {
+          e = sub1 e;
+          xleft = fresh xleft;
+          eleft = substitute_map rename_l eleft;
+          xright = fresh xright;
+          eright = substitute_map rename_r eright;}
+    | Fix {x; tau; e} ->
+      let rename' = refresh rename x in
+      Fix {
+        x = fresh x;
+        tau;
+        e = substitute_map rename' e;}
     | _ -> raise Unimplemented
 
   let substitute (x : string) (e' : t) (e : t) : t =

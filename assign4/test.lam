@@ -1,1 +1,4 @@
-case (inj 5 + 3 = L as (num + bool)) {L(n) -> n + 1 | R(b) -> 1}
+letrec fact : num -> num = fun (n : num) ->
+  if n = 0 then 1 else n * (fact (n - 1))
+in
+  fact 5
