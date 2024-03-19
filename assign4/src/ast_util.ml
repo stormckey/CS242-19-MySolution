@@ -1,5 +1,6 @@
 open Flags
 open Core
+open Util
 
 exception Unimplemented
 
@@ -8,7 +9,7 @@ let fresh s = s ^ "'"
 module Type = struct
   open Ast.Type
 
-  let rec substitute_map (rename : t String.Map.t) (tau : t) : t =
+  let substitute_map (rename : t String.Map.t) (tau : t) : t =
     match tau with
     | Num -> Num
     (* Add more cases here! *)
@@ -17,16 +18,27 @@ module Type = struct
   let substitute (x : string) (tau' : t) (tau : t) : t =
     substitute_map (String.Map.singleton x tau') tau
 
-  let rec to_debruijn (tau : t) : t =
-    let rec aux (depth : int String.Map.t) (tau : t) : t =
+  let to_debruijn (tau : t) : t =
+    let rec aux (index : int String.Map.t) (tau : t) : t =
       match tau with
-      | Num -> Num
-      (* Add more cases here! *)
+      | Num | Bool | Unit | Fn _ -> tau
+      | Var x ->
+        (match String.Map.find index x with 
+          | Some depth -> Var (Int.to_string depth)
+          | None -> tau)
+      (* | Fn {arg; ret} -> 
+        (match arg with
+          | Var x-> 
+            let increased_index = String.Map.map index ~f:(fun i-> i+1) in
+            let new_index = String.Map.add_exn increased_index ~key:x ~data:0 in
+            let new_ret = aux new_index ret in
+            Fn {arg = Var "_"; ret = new_ret}
+          | _ -> failwith "The arg of the function is not a var") *)
       | _ -> raise Unimplemented
     in
     aux String.Map.empty tau
 
-  let rec aequiv (tau1 : t) (tau2 : t) : bool =
+  let aequiv (tau1 : t) (tau2 : t) : bool =
     let rec aux (tau1 : t) (tau2 : t) : bool =
       match (tau1, tau2) with
       | (Num, Num) -> true
@@ -80,13 +92,36 @@ module Expr = struct
   open Ast.Expr
 
   let rec substitute_map (rename : t String.Map.t) (e : t) : t =
+    let sub1 = substitute_map rename in
     match e with
-    | Num _ -> e
+    | Num _ | True | False | Unit -> e
     | Binop {binop; left; right} -> Binop {
       binop;
-      left = substitute_map rename left;
-      right = substitute_map rename right}
-    (* Put more cases here! *)
+      left = sub1 left;
+      right = sub1 right}
+    | Relop {relop; left; right} -> Relop {
+      relop;
+      left = sub1 left;
+      right = sub1 right}
+    | If {cond; then_; else_;} -> If {
+      cond = sub1 cond;
+      then_ = sub1 then_;
+      else_ = sub1 else_;}
+    | And {left; right} -> And {
+      left = sub1 left;
+      right = sub1 right}
+    | Or {left; right} -> Or {
+      left = sub1 left;
+      right = sub1 right}
+    | Lam {x; tau; e} -> 
+      let rename' = String.Map.change rename x ~f:(function | Some _ | None -> Some( Var (fresh x))) in
+      Lam {x = fresh x; tau; e = substitute_map rename' e}
+    | Var x -> (match String.Map.find rename x with 
+                | Some x' -> x'
+                | None -> Var x)
+    | App {lam; arg} -> App {
+      lam = sub1 lam;
+      arg = sub1 arg} 
     | _ -> raise Unimplemented
 
   let substitute (x : string) (e' : t) (e : t) : t =

@@ -1,5 +1,6 @@
 open Flags
 open Core
+open Util
 open Ast
 
 type outcome =
@@ -16,15 +17,50 @@ let rec trystep (e : Expr.t) : outcome =
   | Expr.Binop {binop; left; right} ->
     (left, fun left' -> Expr.Binop {left = left'; binop; right;}) |-> fun () ->
     (right, (fun right' -> Expr.Binop {right = right'; binop; left})) |-> fun () ->
-    let (Expr.Num n1, Expr.Num n2) = (left, right) in
-    let f = match binop with
-      | Expr.Add -> (+)
-      | Expr.Sub -> (-)
-      | Expr.Mul -> ( * )
-      | Expr.Div -> (/)
-    in
-    Step (Expr.Num (f n1 n2) )
+			let n1, n2 = expr_expr_to_num_num left right in
+				let op = (match binop with
+					| Expr.Add -> (+)
+					| Expr.Sub -> (-) 
+					| Expr.Mul -> ( * )
+					| Expr.Div -> (/) )
+				in
+				Step (Expr.Num (op n1 n2))
 
+	| Expr.And {left; right} ->
+		(left, fun left' -> Expr.And {left= left'; right}) |-> fun () ->
+		(right, fun right' -> Expr.And {left; right= right'}) |-> fun () ->
+			Step( expr_and left right)
+
+	| Expr.Or {left; right} ->
+		(left, fun left' -> Expr.Or {left= left'; right}) |-> fun () ->
+		(right, fun right' -> Expr.Or {left; right= right'}) |-> fun () ->
+			Step( expr_or left right)
+	
+	| Expr.Relop {relop; left; right} -> 
+		(left, fun left' -> Expr.Relop {relop; left= left'; right}) |-> fun () ->
+		(right, fun right' -> Expr.Relop {relop; left; right = right'}) |-> fun () ->
+			let n1, n2 = expr_expr_to_num_num left right in
+			let op = (match relop with
+								| Expr.Lt -> (<)
+								| Expr.Gt -> (>)
+								| Expr.Eq -> (=)) in
+			Step(bool_to_expr (op n1 n2))
+
+	| Expr.If {cond; then_; else_ } -> 
+		(cond, fun cond' -> Expr.If {cond = cond'; then_; else_}) |-> fun () ->
+			(match cond with
+				| Expr.True -> Step(then_)
+				| Expr.False -> Step(else_)
+				| _ -> failwith "If condition not boolean in eval")
+		
+	| Expr.Lam _ -> Val
+
+	| Expr.App {lam; arg} -> 
+		(lam, fun lam' -> Expr.App {lam = lam'; arg}) |-> fun () ->
+		(match lam with 
+			| Lam {x; tau = _; e} -> 
+				Step (Ast_util.Expr.substitute x arg e)
+			| _ -> failwith "try to call to a non-function")
   (* Add more cases here! *)
 
   | _ -> raise (RuntimeError (
@@ -43,13 +79,13 @@ let rec eval e =
     eval e'
   | Val -> Ok e
 
-let inline_tests () =
+(* let inline_tests () =
   let p = Parser.parse_expr_exn in
   let e1 = p "2 + 3" in
   assert (trystep e1 = Step(Expr.Num 5));
 
   let e2 = p "(fun (x : num) -> x) 3" in
-  assert (trystep e2 = Step(Expr.Num 3))
+  assert (trystep e2 = Step(Expr.Num 3)) *)
 
 (* Uncomment the line below when you want to run the inline tests. *)
 (* let () = inline_tests () *)

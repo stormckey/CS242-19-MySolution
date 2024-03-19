@@ -66,4 +66,5 @@ module Expr : sig
   [@@deriving variants, sexp_of, sexp, compare]
 
   val to_string : t -> string
+  val to_string_sexp : t -> string
 end
