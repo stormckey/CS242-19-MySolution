@@ -1,6 +1,0 @@
-[package]
-name = "rustlab"
-version = "0.1.0"
-authors = ["Will Crichton <wcrichto@cs.stanford.edu>"]
-
-[dependencies]

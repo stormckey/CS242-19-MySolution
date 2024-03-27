@@ -1,4 +1,0 @@
-#use "topfind"
-#thread
-#require "ppx_jane,core.top"
-open Core.Std
